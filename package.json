@@ -15,14 +15,23 @@
 		"build:shared": "yarn workspace @oblique/shared build",
 		"deploy:mcp": "yarn workspace @oblique/mcp-server deploy",
 		"typecheck": "tsc --build",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"test:coverage": "jest --coverage",
+		"test:shared": "jest --selectProjects @oblique/shared",
+		"test:mcp": "jest --selectProjects @oblique/mcp-server",
+		"test:mobile": "jest --selectProjects @oblique/mobile",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"clean": "yarn workspaces foreach -p run clean && rm -rf node_modules"
 	},
 	"devDependencies": {
+		"@types/jest": "^30.0.0",
 		"@types/node": "^22.10.2",
 		"concurrently": "^9.1.2",
+		"jest": "^30.2.0",
 		"prettier": "^3.7.4",
+		"ts-jest": "^29.4.6",
 		"typescript": "~5.8.3"
 	}
 }

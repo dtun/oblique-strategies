@@ -7,7 +7,9 @@
 		"deploy": "wrangler deploy",
 		"build": "tsc",
 		"typecheck": "tsc --noEmit",
-		"clean": "rm -rf dist .wrangler"
+		"clean": "rm -rf dist .wrangler",
+		"test": "jest",
+		"test:watch": "jest --watch"
 	},
 	"dependencies": {
 		"@oblique/shared": "workspace:*",
