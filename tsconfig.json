@@ -1,7 +1,7 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./packages/shared" },
-    { "path": "./apps/mcp-server" }
-  ]
+	"files": [],
+	"references": [
+		{ "path": "./packages/shared" },
+		{ "path": "./apps/mcp-server" }
+	]
 }

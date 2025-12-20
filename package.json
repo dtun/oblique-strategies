@@ -1,25 +1,28 @@
 {
-  "name": "oblique-strategies",
-  "version": "0.1.0",
-  "private": true,
-  "packageManager": "yarn@4.1.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "dev": "concurrently \"yarn workspace @oblique/mobile start\" \"yarn workspace @oblique/mcp-server dev\"",
-    "dev:mobile": "yarn workspace @oblique/mobile start",
-    "dev:mcp": "yarn workspace @oblique/mcp-server dev",
-    "build": "yarn workspaces foreach -pt run build",
-    "build:shared": "yarn workspace @oblique/shared build",
-    "deploy:mcp": "yarn workspace @oblique/mcp-server deploy",
-    "typecheck": "tsc --build",
-    "clean": "yarn workspaces foreach -p run clean && rm -rf node_modules"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.2",
-    "concurrently": "^9.1.2",
-    "typescript": "~5.8.3"
-  }
+	"name": "oblique-strategies",
+	"version": "0.1.0",
+	"private": true,
+	"packageManager": "yarn@4.1.0",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"dev": "concurrently \"yarn workspace @oblique/mobile start\" \"yarn workspace @oblique/mcp-server dev\"",
+		"dev:mobile": "yarn workspace @oblique/mobile start",
+		"dev:mcp": "yarn workspace @oblique/mcp-server dev",
+		"build": "yarn workspaces foreach -pt run build",
+		"build:shared": "yarn workspace @oblique/shared build",
+		"deploy:mcp": "yarn workspace @oblique/mcp-server deploy",
+		"typecheck": "tsc --build",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"clean": "yarn workspaces foreach -p run clean && rm -rf node_modules"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"concurrently": "^9.1.2",
+		"prettier": "^3.7.4",
+		"typescript": "~5.8.3"
+	}
 }

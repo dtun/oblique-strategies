@@ -2,18 +2,18 @@
  * Represents a single Oblique Strategy card
  */
 export interface Strategy {
-  id: string
-  text: string
-  category?: string
+	id: string
+	text: string
+	category?: string
 }
 
 /**
  * Generic API response wrapper
  */
 export interface ApiResponse<T> {
-  data: T
-  error?: string
-  timestamp: number
+	data: T
+	error?: string
+	timestamp: number
 }
 
 /**

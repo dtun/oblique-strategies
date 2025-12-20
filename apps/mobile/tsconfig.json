@@ -1,12 +1,12 @@
 {
-  "extends": "expo/tsconfig.base",
-  "compilerOptions": {
-    "strict": true,
-    "noEmit": true,
-    "baseUrl": ".",
-    "paths": {
-      "@oblique/shared": ["../../packages/shared/src"],
-      "@oblique/shared/*": ["../../packages/shared/src/*"]
-    }
-  }
+	"extends": "expo/tsconfig.base",
+	"compilerOptions": {
+		"strict": true,
+		"noEmit": true,
+		"baseUrl": ".",
+		"paths": {
+			"@oblique/shared": ["../../packages/shared/src"],
+			"@oblique/shared/*": ["../../packages/shared/src/*"]
+		}
+	}
 }

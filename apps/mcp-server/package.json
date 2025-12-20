@@ -1,21 +1,21 @@
 {
-  "name": "@oblique/mcp-server",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist .wrangler"
-  },
-  "dependencies": {
-    "@oblique/shared": "workspace:*",
-    "hono": "^4.7.10"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250110.0",
-    "typescript": "~5.8.3",
-    "wrangler": "^3.102.0"
-  }
+	"name": "@oblique/mcp-server",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"clean": "rm -rf dist .wrangler"
+	},
+	"dependencies": {
+		"@oblique/shared": "workspace:*",
+		"hono": "^4.7.10"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20250110.0",
+		"typescript": "~5.8.3",
+		"wrangler": "^3.102.0"
+	}
 }

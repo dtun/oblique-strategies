@@ -1,21 +1,21 @@
-const path = require('path');
-const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path')
+const { getDefaultConfig } = require('expo/metro-config')
 
-const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, '../..');
+const projectRoot = __dirname
+const workspaceRoot = path.resolve(projectRoot, '../..')
 
-const config = getDefaultConfig(projectRoot);
+const config = getDefaultConfig(projectRoot)
 
 // Watch all files within the monorepo
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [workspaceRoot]
 
 // Resolve modules from the workspace root and project root
 config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(workspaceRoot, 'node_modules'),
-];
+	path.resolve(projectRoot, 'node_modules'),
+	path.resolve(workspaceRoot, 'node_modules'),
+]
 
 // Resolve workspace packages
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = true
 
-module.exports = config;
+module.exports = config

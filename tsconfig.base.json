@@ -1,24 +1,24 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@oblique/shared": ["./packages/shared/src"],
-      "@oblique/shared/*": ["./packages/shared/src/*"]
-    }
-  },
-  "exclude": ["node_modules", "dist", ".expo", ".wrangler"]
+	"compilerOptions": {
+		"target": "ES2022",
+		"lib": ["ES2022"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"baseUrl": ".",
+		"paths": {
+			"@oblique/shared": ["./packages/shared/src"],
+			"@oblique/shared/*": ["./packages/shared/src/*"]
+		}
+	},
+	"exclude": ["node_modules", "dist", ".expo", ".wrangler"]
 }
