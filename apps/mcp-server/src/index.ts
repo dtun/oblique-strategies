@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { Strategy, StrategyResponse } from '@oblique/shared'
 import { generateId } from '@oblique/shared'
 
-const app = new Hono()
+let app = new Hono()
 
 app.get('/', (c) => {
 	return c.json({
@@ -16,13 +16,13 @@ app.get('/health', (c) => {
 })
 
 app.get('/api/strategy/random', (c) => {
-	const strategy: Strategy = {
+	let strategy: Strategy = {
 		id: generateId(),
 		text: 'Use an old idea',
 		category: 'creativity',
 	}
 
-	const response: StrategyResponse = {
+	let response: StrategyResponse = {
 		data: strategy,
 		timestamp: Date.now(),
 	}

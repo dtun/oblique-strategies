@@ -8,14 +8,14 @@ export const generateId = (): string => {
 /**
  * Format a timestamp to ISO string
  */
-export const formatTimestamp = (timestamp: number): string => {
+export let formatTimestamp = (timestamp: number): string => {
 	return new Date(timestamp).toISOString()
 }
 
 /**
  * Available strategy categories
  */
-export const STRATEGY_CATEGORIES = [
+export let STRATEGY_CATEGORIES = [
 	'creativity',
 	'workflow',
 	'perspective',

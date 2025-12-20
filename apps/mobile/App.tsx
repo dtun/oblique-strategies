@@ -4,7 +4,7 @@ import type { Strategy } from '@oblique/shared'
 import { generateId } from '@oblique/shared'
 
 export default function App() {
-	const strategy: Strategy = {
+	let strategy: Strategy = {
 		id: generateId(),
 		text: 'Honor thy error as a hidden intention',
 		category: 'perspective',
@@ -20,7 +20,7 @@ export default function App() {
 	)
 }
 
-const styles = StyleSheet.create({
+let styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#fff',

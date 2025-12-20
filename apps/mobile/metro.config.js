@@ -1,10 +1,10 @@
-const path = require('path')
-const { getDefaultConfig } = require('expo/metro-config')
+let path = require('path')
+let { getDefaultConfig } = require('expo/metro-config')
 
-const projectRoot = __dirname
-const workspaceRoot = path.resolve(projectRoot, '../..')
+let projectRoot = __dirname
+let workspaceRoot = path.resolve(projectRoot, '../..')
 
-const config = getDefaultConfig(projectRoot)
+let config = getDefaultConfig(projectRoot)
 
 // Watch all files within the monorepo
 config.watchFolders = [workspaceRoot]
