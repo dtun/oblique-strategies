@@ -23,6 +23,7 @@
 		"test:mobile": "jest --selectProjects @oblique/mobile",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
+		"vibecheck": "yarn format && yarn typecheck && yarn test",
 		"clean": "yarn workspaces foreach -p run clean && rm -rf node_modules"
 	},
 	"devDependencies": {
