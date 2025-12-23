@@ -124,6 +124,72 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			})
 		})
 
+		describe('MCP tools/list endpoint', () => {
+			it('should return list of available tools', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/list',
+					}),
+				})
+				let res = await app.request(req)
+
+				expect(res.status).toBe(200)
+				let json = (await res.json()) as any
+				expect(json.jsonrpc).toBe('2.0')
+				expect(json.id).toBe(1)
+				expect(json.result).toBeDefined()
+				expect(Array.isArray(json.result.tools)).toBe(true)
+				expect(json.result.tools.length).toBe(3)
+			})
+
+			it('should include tool schemas', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/list',
+					}),
+				})
+				let res = await app.request(req)
+				let json = (await res.json()) as any
+
+				let tool = json.result.tools.find(
+					(t: any) => t.name === 'get_random_strategy',
+				)
+				expect(tool).toBeDefined()
+				expect(tool.description).toBeDefined()
+				expect(tool.inputSchema).toBeDefined()
+				expect(tool.inputSchema.type).toBe('object')
+				expect(tool.inputSchema.properties).toBeDefined()
+				expect(tool.inputSchema.required).toContain('deviceId')
+			})
+
+			it('should list all three tools', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/list',
+					}),
+				})
+				let res = await app.request(req)
+				let json = (await res.json()) as any
+
+				let toolNames = json.result.tools.map((t: any) => t.name)
+				expect(toolNames).toContain('get_random_strategy')
+				expect(toolNames).toContain('get_user_history')
+				expect(toolNames).toContain('search_strategies')
+			})
+		})
+
 		describe('MCP Tools Integration', () => {
 			function createMockKV(): KVNamespace {
 				let store = new Map<string, string>()

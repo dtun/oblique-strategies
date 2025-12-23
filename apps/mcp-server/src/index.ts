@@ -17,6 +17,59 @@ let ToolsCallParamsSchema = z.object({
 	arguments: z.unknown(),
 })
 
+let tools = [
+	{
+		name: 'get_random_strategy',
+		description:
+			'Get a random Oblique Strategy card, optionally filtered by category',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				deviceId: {
+					type: 'string',
+					description: 'Device identifier for tracking history',
+				},
+				category: {
+					type: 'string',
+					description: 'Optional category to filter strategies',
+				},
+			},
+			required: ['deviceId'],
+		},
+	},
+	{
+		name: 'get_user_history',
+		description: 'Retrieve the viewing history for a user',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				deviceId: {
+					type: 'string',
+					description: 'Device identifier to fetch history for',
+				},
+			},
+			required: ['deviceId'],
+		},
+	},
+	{
+		name: 'search_strategies',
+		description: 'Search for strategies by keyword or category',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				keyword: {
+					type: 'string',
+					description: 'Search keyword to match in strategy text',
+				},
+				category: {
+					type: 'string',
+					description: 'Category to filter strategies by',
+				},
+			},
+		},
+	},
+] as const
+
 type Bindings = {
 	KV: KVNamespace
 }
@@ -41,7 +94,12 @@ app.post('/mcp', async (c) => {
 			)
 		}
 
-		// Only support tools/call method
+		// Handle tools/list
+		if (body.method === 'tools/list') {
+			return c.json(createSuccessResponse(body.id, { tools }))
+		}
+
+		// Handle tools/call
 		if (body.method !== 'tools/call') {
 			return c.json(
 				createErrorResponse(
