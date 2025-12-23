@@ -2,10 +2,15 @@
 	"name": "@oblique/mcp-server",
 	"version": "0.1.0",
 	"private": true,
+	"bin": {
+		"oblique-strategies-mcp": "./dist/stdio.js"
+	},
 	"scripts": {
 		"dev": "wrangler dev",
+		"dev:stdio": "tsx src/stdio.ts",
 		"deploy": "wrangler deploy",
 		"build": "tsc",
+		"build:stdio": "tsc --project tsconfig.stdio.json",
 		"typecheck": "tsc --noEmit",
 		"clean": "rm -rf dist .wrangler",
 		"test": "jest",
@@ -18,6 +23,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20250321.0",
+		"tsx": "^4.19.2",
 		"typescript": "~5.9.2",
 		"wrangler": "^4.56.0"
 	}
