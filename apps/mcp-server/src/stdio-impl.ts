@@ -3,12 +3,12 @@ import {
 	CallToolRequestSchema,
 	ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { createMockKV } from './storage/mock-kv'
+import { createMockKV } from './storage/mock-kv.js'
 import {
 	handleGetRandomStrategy,
 	handleGetUserHistory,
 	handleSearchStrategies,
-} from './mcp/tools'
+} from './mcp/tools.js'
 
 let TOOL_DEFINITIONS = [
 	{

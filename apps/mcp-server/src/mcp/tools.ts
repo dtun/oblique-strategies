@@ -1,11 +1,11 @@
 import { strategies } from '@oblique/shared'
-import { addHistoryEntry, getUserHistory } from '../storage/history'
+import { addHistoryEntry, getUserHistory } from '../storage/history.js'
 import {
 	GetRandomStrategyParamsSchema,
 	GetUserHistoryParamsSchema,
 	SearchStrategiesParamsSchema,
 	type MCPToolResponse,
-} from './types'
+} from './types.js'
 
 function createSuccessResponse(data: unknown): MCPToolResponse {
 	return {

@@ -10,6 +10,8 @@ module.exports = {
 	moduleNameMapper: {
 		'^@oblique/shared$': '<rootDir>/../../packages/shared/src/index.ts',
 		'^@oblique/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
+		// Map .js extensions to .ts for ESM compatibility
+		'^(\\.{1,2}/.*)\\.js$': '$1',
 	},
 
 	transform: {

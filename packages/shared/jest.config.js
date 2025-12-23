@@ -5,6 +5,10 @@ module.exports = {
 	testEnvironment: 'node',
 	rootDir: '.',
 	testMatch: ['<rootDir>/src/**/*.test.ts'],
+	moduleNameMapper: {
+		// Map .js extensions to .ts for ESM compatibility
+		'^(\\.{1,2}/.*)\\.js$': '$1',
+	},
 	transform: {
 		'^.+\\.ts$': [
 			'ts-jest',
