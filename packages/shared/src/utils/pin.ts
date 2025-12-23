@@ -32,7 +32,7 @@ export let pinSchema = z
  */
 export function generatePin(): string {
 	// Generate a random number between 0 and 999999 (inclusive on lower bound, exclusive on upper)
-	const randomNumber = randomInt(0, 1000000)
+	let randomNumber = randomInt(0, 1000000)
 	// Pad with leading zeros to ensure exactly 6 digits
 	return randomNumber.toString().padStart(6, '0')
 }
