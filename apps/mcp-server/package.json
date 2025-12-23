@@ -12,6 +12,7 @@
 		"test:watch": "jest --watch"
 	},
 	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.25.1",
 		"@oblique/shared": "workspace:*",
 		"hono": "^4.7.10"
 	},
