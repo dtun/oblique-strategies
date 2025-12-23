@@ -116,62 +116,158 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			})
 		})
 
-		describe('MCP Route Status', () => {
-			it('should return 200 OK status', async () => {
-				let req = new Request('http://localhost/mcp', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
-				})
-				let res = await app.request(req)
-
-				expect(res.status).toBe(200)
-			})
-		})
-
-		describe('MCP Route Response Format', () => {
-			it('should return content-type application/json', async () => {
-				let req = new Request('http://localhost/mcp', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
-				})
-				let res = await app.request(req)
-
-				let contentType = res.headers.get('content-type')
-				expect(contentType).toContain('application/json')
-			})
-		})
-
-		describe('MCP Route Content', () => {
-			it('should return placeholder message field', async () => {
-				let req = new Request('http://localhost/mcp', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
-				})
-				let res = await app.request(req)
-
-				let json = (await res.json()) as { message: string }
-				expect(json.message).toBe('MCP endpoint - tools coming next')
-			})
-		})
-
 		describe('MCP HTTP Method Specificity', () => {
-			it('should respond to POST requests on /mcp', async () => {
-				let req = new Request('http://localhost/mcp', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
-				})
-				let res = await app.request(req)
-				expect(res.status).toBe(200)
-			})
-
 			it('should not match GET requests on /mcp (returns 404)', async () => {
 				let req = new Request('http://localhost/mcp', { method: 'GET' })
 				let res = await app.request(req)
 				expect(res.status).toBe(404)
+			})
+		})
+
+		describe('MCP Tools Integration', () => {
+			function createMockKV(): KVNamespace {
+				let store = new Map<string, string>()
+				return {
+					get: jest.fn(async (key: string, type?: 'text' | 'json') => {
+						let value = store.get(key)
+						if (!value) return null
+						return type === 'json' ? JSON.parse(value) : value
+					}),
+					put: jest.fn(async (key: string, value: string) => {
+						store.set(key, value)
+					}),
+					delete: jest.fn(async (key: string) => {
+						store.delete(key)
+					}),
+					list: jest.fn(),
+					getWithMetadata: jest.fn(),
+				} as unknown as KVNamespace
+			}
+
+			it('should handle valid get_random_strategy request', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/call',
+						params: {
+							name: 'get_random_strategy',
+							arguments: { deviceId: 'device123' },
+						},
+					}),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(200)
+				let json = (await res.json()) as any
+				expect(json.jsonrpc).toBe('2.0')
+				expect(json.id).toBe(1)
+				expect(json.result).toBeDefined()
+				expect(json.result.content).toHaveLength(1)
+				expect(json.result.isError).toBe(false)
+			})
+
+			it('should return error for invalid JSON-RPC format', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ method: 'test' }),
+				})
+				let res = await app.request(req)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error.code).toBe(-32600)
+			})
+
+			it('should return error for unknown tool', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/call',
+						params: {
+							name: 'unknown_tool',
+							arguments: {},
+						},
+					}),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(404)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error.code).toBe(-32601)
+			})
+
+			it('should return error for invalid tool arguments', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'tools/call',
+						params: {
+							name: 'get_random_strategy',
+							arguments: {},
+						},
+					}),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should return error for non-tools/call method', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						id: 1,
+						method: 'unknown/method',
+						params: {},
+					}),
+				})
+				let res = await app.request(req)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should return error for malformed JSON', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: 'not valid json',
+				})
+				let res = await app.request(req)
+
+				expect(res.status).toBe(400)
 			})
 		})
 	})
