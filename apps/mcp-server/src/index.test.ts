@@ -100,4 +100,79 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			expect(text).toBe('Oblique Strategies MCP Server')
 		})
 	})
+
+	describe('POST /mcp endpoint', () => {
+		describe('MCP Route Existence', () => {
+			it('should have a POST /mcp route defined', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
+				})
+				let res = await app.request(req)
+
+				expect(res).toBeDefined()
+				expect(res.status).toBeDefined()
+			})
+		})
+
+		describe('MCP Route Status', () => {
+			it('should return 200 OK status', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
+				})
+				let res = await app.request(req)
+
+				expect(res.status).toBe(200)
+			})
+		})
+
+		describe('MCP Route Response Format', () => {
+			it('should return content-type application/json', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
+				})
+				let res = await app.request(req)
+
+				let contentType = res.headers.get('content-type')
+				expect(contentType).toContain('application/json')
+			})
+		})
+
+		describe('MCP Route Content', () => {
+			it('should return placeholder message field', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
+				})
+				let res = await app.request(req)
+
+				let json = (await res.json()) as { message: string }
+				expect(json.message).toBe('MCP endpoint - tools coming next')
+			})
+		})
+
+		describe('MCP HTTP Method Specificity', () => {
+			it('should respond to POST requests on /mcp', async () => {
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ jsonrpc: '2.0', method: 'test' }),
+				})
+				let res = await app.request(req)
+				expect(res.status).toBe(200)
+			})
+
+			it('should not match GET requests on /mcp (returns 404)', async () => {
+				let req = new Request('http://localhost/mcp', { method: 'GET' })
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+		})
+	})
 })
