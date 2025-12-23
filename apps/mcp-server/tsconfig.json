@@ -4,6 +4,7 @@
 		"types": ["@cloudflare/workers-types", "@types/jest"],
 		"jsx": "react",
 		"noEmit": true,
+		"isolatedModules": true,
 		"paths": {
 			"@oblique/shared": ["../../packages/shared/src"],
 			"@oblique/shared/*": ["../../packages/shared/src/*"]

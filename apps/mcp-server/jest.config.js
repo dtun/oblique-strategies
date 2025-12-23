@@ -24,11 +24,4 @@ module.exports = {
 			},
 		],
 	},
-
-	// Globals for Cloudflare Workers (if needed)
-	globals: {
-		'ts-jest': {
-			isolatedModules: true,
-		},
-	},
 }
