@@ -11,11 +11,3 @@ command = "yarn build"
 binding = "KV"
 id = "d1ba8031ae76406e8f1c790827ea5099"
 preview_id = "364295391af543bfa1d395dbccc0fdd2"
-
-# Development configuration
-[env.development]
-vars = { ENVIRONMENT = "development" }
-
-# Production configuration
-[env.production]
-vars = { ENVIRONMENT = "production" }
