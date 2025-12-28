@@ -337,4 +337,415 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			})
 		})
 	})
+
+	describe('POST /register endpoint', () => {
+		function createMockKV(): KVNamespace {
+			let store = new Map<string, { value: string; expirationTtl?: number }>()
+			return {
+				get: jest.fn(async (key: string, type?: 'text' | 'json') => {
+					let entry = store.get(key)
+					if (!entry) return null
+					return type === 'json' ? JSON.parse(entry.value) : entry.value
+				}),
+				put: jest.fn(
+					async (
+						key: string,
+						value: string,
+						options?: { expirationTtl?: number },
+					) => {
+						store.set(key, {
+							value,
+							expirationTtl: options?.expirationTtl,
+						})
+					},
+				),
+				delete: jest.fn(async (key: string) => {
+					store.delete(key)
+				}),
+				list: jest.fn(),
+				getWithMetadata: jest.fn(),
+			} as unknown as KVNamespace
+		}
+
+		describe('Basic Success Case', () => {
+			it('should accept valid PIN and deviceId', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456', deviceId: 'device-abc-123' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(200)
+				let json = (await res.json()) as any
+				expect(json).toEqual({ success: true })
+			})
+
+			it('should store deviceId in KV with correct key format', async () => {
+				let mockKV = createMockKV()
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '654321', deviceId: 'mobile-xyz' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				expect(mockKV.put).toHaveBeenCalledWith('pin:654321', 'mobile-xyz', {
+					expirationTtl: 300,
+				})
+			})
+
+			it('should set 5-minute TTL (300 seconds)', async () => {
+				let mockKV = createMockKV()
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '111111', deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				expect(mockKV.put).toHaveBeenCalledWith(
+					expect.any(String),
+					expect.any(String),
+					{ expirationTtl: 300 },
+				)
+			})
+		})
+
+		describe('PIN Validation Tests', () => {
+			it('should reject PIN that is too short', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '12345', deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('PIN must be exactly 6 digits')
+			})
+
+			it('should reject PIN that is too long', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '1234567', deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('PIN must be exactly 6 digits')
+			})
+
+			it('should reject PIN with non-numeric characters', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: 'abc123', deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('PIN must be exactly 6 digits')
+			})
+
+			it('should reject empty PIN', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '', deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('PIN must be exactly 6 digits')
+			})
+		})
+
+		describe('Request Validation Tests', () => {
+			it('should reject request missing deviceId', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('Invalid request body')
+			})
+
+			it('should reject request missing PIN', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ deviceId: 'device1' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('Invalid request body')
+			})
+
+			it('should reject request with empty deviceId', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456', deviceId: '' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toBe('Invalid request body')
+			})
+
+			it('should reject invalid JSON body', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: 'not valid json',
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should not match GET requests on /register (returns 404)', async () => {
+				let req = new Request('http://localhost/register', { method: 'GET' })
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+
+			it('should not match PUT requests on /register (returns 404)', async () => {
+				let req = new Request('http://localhost/register', { method: 'PUT' })
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+
+			it('should not match DELETE requests on /register (returns 404)', async () => {
+				let req = new Request('http://localhost/register', {
+					method: 'DELETE',
+				})
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+		})
+
+		describe('KV Storage Verification', () => {
+			it('should store exactly the deviceId as the value', async () => {
+				let mockKV = createMockKV()
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						pin: '999999',
+						deviceId: 'exact-device-id-123',
+					}),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				expect(mockKV.put).toHaveBeenCalledWith(
+					'pin:999999',
+					'exact-device-id-123',
+					{ expirationTtl: 300 },
+				)
+			})
+
+			it('should use pin: prefix in key format', async () => {
+				let mockKV = createMockKV()
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '777777', deviceId: 'device-xyz' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				expect(mockKV.put).toHaveBeenCalledWith(
+					expect.stringMatching(/^pin:/),
+					expect.any(String),
+					expect.any(Object),
+				)
+			})
+
+			it('should allow overwriting existing PIN', async () => {
+				let mockKV = createMockKV()
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+
+				// First registration
+				let req1 = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '555555', deviceId: 'device1' }),
+				})
+				let res1 = await app.fetch(req1, mockEnv, ctx as any)
+				expect(res1.status).toBe(200)
+
+				// Second registration with same PIN
+				let req2 = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '555555', deviceId: 'device2' }),
+				})
+				let res2 = await app.fetch(req2, mockEnv, ctx as any)
+				expect(res2.status).toBe(200)
+
+				// Verify put was called twice
+				expect(mockKV.put).toHaveBeenCalledTimes(2)
+			})
+		})
+
+		describe('Edge Cases', () => {
+			it('should handle very long deviceId', async () => {
+				let longDeviceId = 'a'.repeat(2000)
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456', deviceId: longDeviceId }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(200)
+				let json = (await res.json()) as any
+				expect(json).toEqual({ success: true })
+			})
+
+			it('should handle special characters in deviceId', async () => {
+				let specialDeviceId = 'device-!@#$%^&*()_+-=[]{}|;:,.<>?'
+				let req = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456', deviceId: specialDeviceId }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(200)
+				let json = (await res.json()) as any
+				expect(json).toEqual({ success: true })
+			})
+
+			it('should handle concurrent requests with same PIN', async () => {
+				let mockKV = createMockKV()
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+
+				// Concurrent requests
+				let req1 = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '888888', deviceId: 'device-a' }),
+				})
+				let req2 = new Request('http://localhost/register', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '888888', deviceId: 'device-b' }),
+				})
+
+				let [res1, res2] = await Promise.all([
+					app.fetch(req1, mockEnv, ctx as any),
+					app.fetch(req2, mockEnv, ctx as any),
+				])
+
+				expect(res1.status).toBe(200)
+				expect(res2.status).toBe(200)
+			})
+		})
+	})
 })
