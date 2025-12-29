@@ -6,8 +6,8 @@
 		"noEmit": true,
 		"isolatedModules": true,
 		"paths": {
-			"@oblique/shared": ["../../packages/shared/src"],
-			"@oblique/shared/*": ["../../packages/shared/src/*"]
+			"@oblique/shared": ["../../packages/shared/dist"],
+			"@oblique/shared/*": ["../../packages/shared/dist/*"]
 		}
 	},
 	"include": ["src/**/*"],
