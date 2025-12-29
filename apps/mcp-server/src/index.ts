@@ -438,13 +438,33 @@ app.post('/mcp', async (c) => {
 			return createSSEResponse(errorResponse)
 		}
 
-		// STEP 3: Handle tools/list
+		// STEP 3: Handle initialize
+		if (body.method === 'initialize') {
+			let successResponse = createSuccessResponse(body.id, {
+				protocolVersion: '2024-11-05',
+				capabilities: {
+					tools: {},
+				},
+				serverInfo: {
+					name: 'oblique-strategies',
+					version: '1.0.0',
+				},
+			})
+			return createSSEResponse(successResponse)
+		}
+
+		// STEP 4: Handle notifications/initialized (acknowledge with empty SSE)
+		if (body.method === 'notifications/initialized') {
+			return new Response('', { status: 200 })
+		}
+
+		// STEP 5: Handle tools/list
 		if (body.method === 'tools/list') {
 			let successResponse = createSuccessResponse(body.id, { tools })
 			return createSSEResponse(successResponse)
 		}
 
-		// STEP 4: Handle tools/call
+		// STEP 6: Handle tools/call
 		if (body.method !== 'tools/call') {
 			let errorResponse = createErrorResponse(
 				body.id,
@@ -454,7 +474,7 @@ app.post('/mcp', async (c) => {
 			return createSSEResponse(errorResponse)
 		}
 
-		// STEP 5: Validate params
+		// STEP 7: Validate params
 		let paramsResult = ToolsCallParamsSchema.safeParse(body.params)
 		if (!paramsResult.success) {
 			let errorResponse = createErrorResponse(
@@ -465,7 +485,7 @@ app.post('/mcp', async (c) => {
 			return createSSEResponse(errorResponse)
 		}
 
-		// STEP 6: Execute tool with deviceId from token
+		// STEP 8: Execute tool with deviceId from token
 		let { name, arguments: args } = paramsResult.data
 		let argsWithDeviceId =
 			typeof args === 'object' && args !== null
@@ -495,7 +515,7 @@ app.post('/mcp', async (c) => {
 			}
 		}
 
-		// STEP 7: Return success via SSE
+		// STEP 9: Return success via SSE
 		let successResponse = createSuccessResponse(body.id, result)
 		return createSSEResponse(successResponse)
 	} catch (error) {

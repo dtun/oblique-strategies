@@ -1247,6 +1247,77 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			})
 		})
 
+		describe('MCP Protocol Handshake', () => {
+			async function parseSSE(res: Response): Promise<any> {
+				let text = await res.text()
+				let dataLine = text
+					.split('\n')
+					.find((line) => line.startsWith('data: '))
+				if (!dataLine) throw new Error('No data line in SSE response')
+				return JSON.parse(dataLine.replace('data: ', ''))
+			}
+
+			it('should handle initialize method', async () => {
+				// Arrange
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json',
+						Authorization: `Bearer ${validToken}`,
+					},
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'initialize',
+						params: {
+							protocolVersion: '2024-11-05',
+							capabilities: {},
+							clientInfo: {
+								name: 'test-client',
+								version: '1.0.0',
+							},
+						},
+						id: 1,
+					}),
+				})
+
+				// Act
+				let res = await app.fetch(req, { KV: mockKV })
+				let json = await parseSSE(res)
+
+				// Assert
+				expect(json.jsonrpc).toBe('2.0')
+				expect(json.id).toBe(1)
+				expect(json.result).toBeDefined()
+				expect(json.result.protocolVersion).toBe('2024-11-05')
+				expect(json.result.capabilities).toBeDefined()
+				expect(json.result.capabilities.tools).toBeDefined()
+				expect(json.result.serverInfo).toBeDefined()
+				expect(json.result.serverInfo.name).toBe('oblique-strategies')
+				expect(json.result.serverInfo.version).toBe('1.0.0')
+			})
+
+			it('should handle notifications/initialized', async () => {
+				// Arrange
+				let req = new Request('http://localhost/mcp', {
+					method: 'POST',
+					headers: {
+						'content-type': 'application/json',
+						Authorization: `Bearer ${validToken}`,
+					},
+					body: JSON.stringify({
+						jsonrpc: '2.0',
+						method: 'notifications/initialized',
+					}),
+				})
+
+				// Act
+				let res = await app.fetch(req, { KV: mockKV })
+
+				// Assert
+				expect(res.status).toBe(200)
+			})
+		})
+
 		describe('JSON-RPC Errors via SSE', () => {
 			async function parseSSE(res: Response): Promise<any> {
 				let text = await res.text()
