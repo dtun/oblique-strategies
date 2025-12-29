@@ -748,4 +748,486 @@ describe('Hono App with Cloudflare KV Bindings', () => {
 			})
 		})
 	})
+
+	describe('GET /auth endpoint', () => {
+		describe('HTML Form Response', () => {
+			it('should return HTML form with 200 status', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				expect(res.status).toBe(200)
+			})
+
+			it('should return Content-Type: text/html header', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				let contentType = res.headers.get('content-type')
+				expect(contentType).toContain('text/html')
+			})
+
+			it('should contain form with PIN input field', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				let html = await res.text()
+				expect(html).toContain('<form')
+				expect(html).toContain('type="text"')
+				expect(html).toContain('name="pin"')
+				expect(html).toContain('id="pin"')
+			})
+
+			it('should have form that posts to /auth endpoint', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				let html = await res.text()
+				expect(html).toContain('method="POST"')
+				expect(html).toContain('action="/auth"')
+			})
+
+			it('should include PIN validation pattern', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				let html = await res.text()
+				expect(html).toContain('pattern="[0-9]{6}"')
+				expect(html).toContain('maxlength="6"')
+			})
+
+			it('should have submit button', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+
+				let html = await res.text()
+				expect(html).toContain('<button')
+				expect(html).toContain('type="submit"')
+			})
+		})
+
+		describe('HTTP Method Specificity', () => {
+			it('should respond to GET requests on /auth', async () => {
+				let req = new Request('http://localhost/auth', { method: 'GET' })
+				let res = await app.request(req)
+				expect(res.status).toBe(200)
+			})
+
+			it('should not match PUT requests on /auth (returns 404)', async () => {
+				let req = new Request('http://localhost/auth', { method: 'PUT' })
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+
+			it('should not match DELETE requests on /auth (returns 404)', async () => {
+				let req = new Request('http://localhost/auth', { method: 'DELETE' })
+				let res = await app.request(req)
+				expect(res.status).toBe(404)
+			})
+		})
+	})
+
+	describe('POST /auth endpoint', () => {
+		function createMockKV(): KVNamespace {
+			let store = new Map<string, { value: string; expirationTtl?: number }>()
+			return {
+				get: jest.fn(async (key: string, type?: 'text' | 'json') => {
+					let entry = store.get(key)
+					if (!entry) return null
+					return type === 'json' ? JSON.parse(entry.value) : entry.value
+				}),
+				put: jest.fn(
+					async (
+						key: string,
+						value: string,
+						options?: { expirationTtl?: number },
+					) => {
+						store.set(key, {
+							value,
+							expirationTtl: options?.expirationTtl,
+						})
+					},
+				),
+				delete: jest.fn(async (key: string) => {
+					store.delete(key)
+				}),
+				list: jest.fn(),
+				getWithMetadata: jest.fn(),
+			} as unknown as KVNamespace
+		}
+
+		describe('Success Cases', () => {
+			it('should exchange valid PIN for token', async () => {
+				let mockKV = createMockKV()
+				// Pre-populate KV with a PIN
+				await mockKV.put('pin:123456', 'device-abc-123', {
+					expirationTtl: 300,
+				})
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(200)
+				let contentType = res.headers.get('content-type')
+				expect(contentType).toContain('text/html')
+			})
+
+			it('should display generated token in success page', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:654321', 'test-device', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '654321' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				let html = await res.text()
+				// Token should be a UUID format
+				expect(html).toMatch(
+					/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+				)
+			})
+
+			it('should store generated token in KV with token: prefix', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:111111', 'device1', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '111111' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				// Verify token was stored with correct prefix (check the second put call)
+				let tokenPutCalls = (mockKV.put as jest.Mock).mock.calls.filter(
+					(call) => call[0].startsWith('token:'),
+				)
+				expect(tokenPutCalls.length).toBe(1)
+				expect(tokenPutCalls[0][0]).toMatch(/^token:/)
+				expect(tokenPutCalls[0][1]).toBe('device1')
+			})
+
+			it('should delete PIN from KV after successful exchange', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:222222', 'device2', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '222222' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				expect(mockKV.delete).toHaveBeenCalledWith('pin:222222')
+			})
+
+			it('should store token with no expiration (no TTL)', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:333333', 'device3', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '333333' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				await app.fetch(req, mockEnv, ctx as any)
+
+				// Verify put was called without expirationTtl (third param should be undefined)
+				let putCalls = (mockKV.put as jest.Mock).mock.calls.filter((call) =>
+					call[0].startsWith('token:'),
+				)
+				expect(putCalls.length).toBe(1)
+				expect(putCalls[0][2]).toBeUndefined()
+			})
+
+			it('should include MCP configuration example in success page', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:444444', 'device4', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '444444' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				let html = await res.text()
+				expect(html).toContain('mcpServers')
+				expect(html).toContain('oblique-strategies')
+				expect(html).toContain('Authorization')
+				expect(html).toContain('Bearer')
+			})
+
+			it('should include copy button in success page', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:555555', 'device5', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '555555' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				let html = await res.text()
+				expect(html).toContain('onclick')
+				expect(html).toContain('copy')
+			})
+		})
+
+		describe('Error Cases', () => {
+			it('should reject PIN that does not exist in KV', async () => {
+				let mockKV = createMockKV()
+				// Don't pre-populate KV - PIN doesn't exist
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '999999' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(404)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+				expect(json.error).toContain('not found')
+			})
+
+			it('should reject PIN with invalid format (not 6 digits)', async () => {
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '12345' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should reject PIN with non-numeric characters', async () => {
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: 'abc123' }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should reject missing PIN in request body', async () => {
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({}),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should reject non-string PIN values', async () => {
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: 123456 }),
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+
+			it('should reject invalid JSON body', async () => {
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: 'not valid json',
+				})
+				let mockEnv = { KV: createMockKV() }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				expect(res.status).toBe(400)
+				let json = (await res.json()) as any
+				expect(json.error).toBeDefined()
+			})
+		})
+
+		describe('Token Generation', () => {
+			it('should generate unique tokens across multiple exchanges', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:111111', 'device1', { expirationTtl: 300 })
+				await mockKV.put('pin:222222', 'device2', { expirationTtl: 300 })
+
+				let req1 = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '111111' }),
+				})
+				let req2 = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '222222' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+
+				let res1 = await app.fetch(req1, mockEnv, ctx as any)
+				// Need to re-populate since PIN was deleted
+				await mockKV.put('pin:222222', 'device2', { expirationTtl: 300 })
+				let res2 = await app.fetch(req2, mockEnv, ctx as any)
+
+				let html1 = await res1.text()
+				let html2 = await res2.text()
+
+				// Extract tokens from HTML
+				let token1Match = html1.match(
+					/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+				)
+				let token2Match = html2.match(
+					/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+				)
+
+				expect(token1Match).toBeTruthy()
+				expect(token2Match).toBeTruthy()
+				expect(token1Match![0]).not.toBe(token2Match![0])
+			})
+
+			it('should generate tokens in UUID v4 format', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:123456', 'device-test', { expirationTtl: 300 })
+
+				let req = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '123456' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+				let res = await app.fetch(req, mockEnv, ctx as any)
+
+				let html = await res.text()
+				// UUID v4 pattern: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+				expect(html).toMatch(
+					/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+				)
+			})
+		})
+
+		describe('One-Time PIN Usage', () => {
+			it('should prevent PIN reuse after successful exchange', async () => {
+				let mockKV = createMockKV()
+				await mockKV.put('pin:777777', 'device-reuse-test', {
+					expirationTtl: 300,
+				})
+
+				let req1 = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '777777' }),
+				})
+				let mockEnv = { KV: mockKV }
+				let ctx = {
+					waitUntil: jest.fn(),
+					passThroughOnException: jest.fn(),
+				}
+
+				// First request should succeed
+				let res1 = await app.fetch(req1, mockEnv, ctx as any)
+				expect(res1.status).toBe(200)
+
+				// Second request with same PIN should fail (PIN was deleted)
+				let req2 = new Request('http://localhost/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ pin: '777777' }),
+				})
+				let res2 = await app.fetch(req2, mockEnv, ctx as any)
+				expect(res2.status).toBe(404)
+			})
+		})
+	})
 })
