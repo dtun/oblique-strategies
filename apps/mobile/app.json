@@ -1,6 +1,6 @@
 {
 	"expo": {
-		"name": "mobile",
+		"name": "Oblique Strategies",
 		"slug": "oblique-strategies",
 		"version": "1.0.0",
 		"orientation": "portrait",
@@ -13,13 +13,16 @@
 			"backgroundColor": "#ffffff"
 		},
 		"ios": {
-			"supportsTablet": true
+			"supportsTablet": true,
+			"bundleIdentifier": "com.paperstreetapp.oblique",
+			"buildNumber": "1"
 		},
 		"android": {
 			"adaptiveIcon": {
 				"foregroundImage": "./assets/adaptive-icon.png",
 				"backgroundColor": "#ffffff"
 			},
+			"package": "com.paperstreetapp.oblique",
 			"edgeToEdgeEnabled": true,
 			"predictiveBackGestureEnabled": false
 		},
