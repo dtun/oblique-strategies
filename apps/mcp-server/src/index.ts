@@ -12,6 +12,8 @@ import {
 	handleSearchStrategies,
 } from './mcp/tools'
 import { validatePin } from '@oblique/shared'
+import { authenticateRequest, AuthenticationError } from './mcp/auth'
+import { createSSEResponse } from './mcp/sse'
 
 let ToolsCallParamsSchema = z.object({
 	name: z.string(),
@@ -413,86 +415,96 @@ app.get('/', (c) => c.text('Oblique Strategies MCP Server'))
 
 app.post('/mcp', async (c) => {
 	try {
+		// STEP 1: Authenticate request
+		let authHeader = c.req.header('Authorization') ?? null
+		let deviceId: string
+		try {
+			deviceId = await authenticateRequest(c.env.KV, authHeader)
+		} catch (error) {
+			if (error instanceof AuthenticationError) {
+				return c.json({ error: 'Unauthorized' }, 401)
+			}
+			throw error
+		}
+
+		// STEP 2: Parse and validate JSON-RPC request
 		let body = await c.req.json()
-
-		// Validate JSON-RPC request
 		if (!isValidJSONRPCRequest(body)) {
-			return c.json(
-				createErrorResponse(
-					body.id ?? null,
-					JSONRPC_ERROR_CODES.INVALID_REQUEST,
-					'Invalid Request',
-				),
-				400,
+			let errorResponse = createErrorResponse(
+				body.id ?? null,
+				JSONRPC_ERROR_CODES.INVALID_REQUEST,
+				'Invalid Request',
 			)
+			return createSSEResponse(errorResponse)
 		}
 
-		// Handle tools/list
+		// STEP 3: Handle tools/list
 		if (body.method === 'tools/list') {
-			return c.json(createSuccessResponse(body.id, { tools }))
+			let successResponse = createSuccessResponse(body.id, { tools })
+			return createSSEResponse(successResponse)
 		}
 
-		// Handle tools/call
+		// STEP 4: Handle tools/call
 		if (body.method !== 'tools/call') {
-			return c.json(
-				createErrorResponse(
-					body.id,
-					JSONRPC_ERROR_CODES.METHOD_NOT_FOUND,
-					'Method not found',
-				),
-				400,
+			let errorResponse = createErrorResponse(
+				body.id,
+				JSONRPC_ERROR_CODES.METHOD_NOT_FOUND,
+				'Method not found',
 			)
+			return createSSEResponse(errorResponse)
 		}
 
-		// Validate and parse params
+		// STEP 5: Validate params
 		let paramsResult = ToolsCallParamsSchema.safeParse(body.params)
 		if (!paramsResult.success) {
-			return c.json(
-				createErrorResponse(
-					body.id,
-					JSONRPC_ERROR_CODES.INVALID_PARAMS,
-					'Invalid params',
-				),
-				400,
+			let errorResponse = createErrorResponse(
+				body.id,
+				JSONRPC_ERROR_CODES.INVALID_PARAMS,
+				'Invalid params',
 			)
+			return createSSEResponse(errorResponse)
 		}
 
+		// STEP 6: Execute tool with deviceId from token
 		let { name, arguments: args } = paramsResult.data
+		let argsWithDeviceId =
+			typeof args === 'object' && args !== null
+				? { ...args, deviceId }
+				: { deviceId }
 		let kv = c.env.KV
 
 		// Route to tool handlers
 		let result
 		switch (name) {
 			case 'get_random_strategy':
-				result = await handleGetRandomStrategy(kv, args)
+				result = await handleGetRandomStrategy(kv, argsWithDeviceId)
 				break
 			case 'get_user_history':
-				result = await handleGetUserHistory(kv, args)
+				result = await handleGetUserHistory(kv, argsWithDeviceId)
 				break
 			case 'search_strategies':
-				result = await handleSearchStrategies(kv, args)
+				result = await handleSearchStrategies(kv, argsWithDeviceId)
 				break
-			default:
-				return c.json(
-					createErrorResponse(
-						body.id,
-						JSONRPC_ERROR_CODES.METHOD_NOT_FOUND,
-						`Unknown tool: ${name}`,
-					),
-					404,
+			default: {
+				let errorResponse = createErrorResponse(
+					body.id,
+					JSONRPC_ERROR_CODES.METHOD_NOT_FOUND,
+					`Unknown tool: ${name}`,
 				)
+				return createSSEResponse(errorResponse)
+			}
 		}
 
-		return c.json(createSuccessResponse(body.id, result))
+		// STEP 7: Return success via SSE
+		let successResponse = createSuccessResponse(body.id, result)
+		return createSSEResponse(successResponse)
 	} catch (error) {
-		return c.json(
-			createErrorResponse(
-				null,
-				JSONRPC_ERROR_CODES.INTERNAL_ERROR,
-				error instanceof Error ? error.message : 'Internal error',
-			),
-			400,
+		let errorResponse = createErrorResponse(
+			null,
+			JSONRPC_ERROR_CODES.INTERNAL_ERROR,
+			error instanceof Error ? error.message : 'Internal error',
 		)
+		return createSSEResponse(errorResponse)
 	}
 })
 
