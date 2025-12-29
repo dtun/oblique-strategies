@@ -9,6 +9,26 @@
 			"import": "./dist/index.js",
 			"require": "./dist/index.js",
 			"types": "./dist/index.d.ts"
+		},
+		"./types": {
+			"import": "./dist/types/index.js",
+			"require": "./dist/types/index.js",
+			"types": "./dist/types/index.d.ts"
+		},
+		"./utils": {
+			"import": "./dist/utils/index.js",
+			"require": "./dist/utils/index.js",
+			"types": "./dist/utils/index.d.ts"
+		},
+		"./data": {
+			"import": "./dist/data/strategies.js",
+			"require": "./dist/data/strategies.js",
+			"types": "./dist/data/strategies.d.ts"
+		},
+		"./pin": {
+			"import": "./dist/utils/pin.js",
+			"require": "./dist/utils/pin.js",
+			"types": "./dist/utils/pin.d.ts"
 		}
 	},
 	"scripts": {

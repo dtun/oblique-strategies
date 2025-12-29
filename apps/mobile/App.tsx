@@ -1,7 +1,7 @@
 import { StatusBar } from 'expo-status-bar'
 import { StyleSheet, Text, View } from 'react-native'
-import type { Strategy } from '@oblique/shared'
-import { generateId } from '@oblique/shared'
+import type { Strategy } from '@oblique/shared/types'
+import { generateId } from '@oblique/shared/utils'
 
 export default function App() {
 	let strategy: Strategy = {

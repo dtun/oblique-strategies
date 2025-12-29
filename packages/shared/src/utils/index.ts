@@ -26,8 +26,3 @@ export let STRATEGY_CATEGORIES = [
  * Type representing a strategy category
  */
 export type StrategyCategory = (typeof STRATEGY_CATEGORIES)[number]
-
-/**
- * PIN utilities
- */
-export { generatePin, validatePin, pinSchema } from './pin.js'

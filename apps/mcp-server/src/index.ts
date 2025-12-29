@@ -11,7 +11,7 @@ import {
 	handleGetUserHistory,
 	handleSearchStrategies,
 } from './mcp/tools'
-import { validatePin } from '@oblique/shared'
+import { validatePin } from '@oblique/shared/pin'
 import { authenticateRequest, AuthenticationError } from './mcp/auth'
 import { createSSEResponse } from './mcp/sse'
 
